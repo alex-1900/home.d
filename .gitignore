@@ -1,0 +1,5 @@
+/configs/ssh/certs/*
+/configs/ssh/id_*
+/configs/ssh/known_hosts*
+!.gitkeep
+.env
