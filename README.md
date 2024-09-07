@@ -19,7 +19,14 @@ sudo apt update && sudo apt install -y 1password-cli
 ```
 
 ```sh
+git config --global --unset core.sshCommand
+
 eval $(op signin)
 
 cp .env.example .env
+```
+
+# 设置 remote url
+```sh
+git remote set-url origin git@github-work:username/repo.git
 ```
