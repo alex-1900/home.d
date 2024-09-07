@@ -1,1 +1,8 @@
 Include ~/.ssh/config.d/*
+
+# default codeup profile
+Host codeup.aliyun.com
+    User git
+    IdentityFile ~/.ssh/certs/id_codeup_fanyou_ed25519
+    ServerAliveInterval 20
+    Compression yes
