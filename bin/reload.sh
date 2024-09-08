@@ -5,6 +5,22 @@ PROJECT_DIR=$(dirname "$SCRIPT_DIR")
 
 source "$PROJECT_DIR"/.env
 
+load_app_frp() {
+    local url=$(cat "$PROJECT_DIR"/app.json | jq -r ".frp.url")
+    local version=$(echo "$url" | grep -oP '(?<=releases/download/)[^/]+')
+    if [ "$version" != "$FRP_VERSION" ]; then
+        local file_name=$(echo "$url" | grep -oP "(?<=$version/)[^/]+$")
+        local dir_name=$(echo "$url" | grep -oP "(?<=$version/)[^/]+(?=.tar.gz$)")
+
+        local proxy=$(ip route | grep default | awk '{print $3}')
+        export https_proxy="$proxy:10809"
+        wget -P /tmp/ "$url"
+        mkdir -p "$HOME"/app/frp/bin
+        tar xf /tmp/"$file_name" -C "$HOME"/app/frp/
+        ln -svf "$HOME"/app/frp/"$dir_name"/frpc "$HOME"/app/frp/bin/frpc
+    fi
+}
+
 process_apt_package() {
     if ! command -v op &> /dev/null; then
         echo "op is not installed. Installing..."
@@ -17,6 +33,15 @@ process_apt_package() {
     else
         echo "jq is already installed."
     fi
+
+    if ! command -v wget &> /dev/null; then
+        echo "wget is not installed. Installing..."
+        sudo apt update && sudo apt install -y wget
+    else
+        echo "wget is already installed."
+    fi
+
+    load_app_frp
 }
 
 op_item_list=""
@@ -50,10 +75,18 @@ process_cert_from_op() {
 }
 
 create_profile() {
+    local frp_url=$(cat "$PROJECT_DIR"/app.json | jq -r ".frp.url")
+    local frp_version=$(echo "$frp_url" | grep -oP '(?<=releases/download/)[^/]+')
+
     cat <<EOF > ~/.my_profile
 export PROXY_HOST=\$(ip route | grep default | awk '{print \$3}')
 export PROXY_HTTP_HOST=10809
 export PROXY_SOCK_HOST=10808
+
+# app frp
+export PATH="$HOME/app/frp/bin:\$PATH"
+export FRP_VERSION="$frp_version"
+alias frpc='frpc -c "$PROJECT_DIR"/configs/frp/frpc.toml'
 
 EOF
 }

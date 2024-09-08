@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ -f ~/.op_session ]; then
     export OP_SESSION=$(cat ~/.op_session)
