@@ -5,7 +5,7 @@ PROJECT_DIR=$(dirname "$SCRIPT_DIR")
 
 source "$PROJECT_DIR"/.env
 
-sync_profile() {
+profile.sync() {
     local frp_url=$(cat "$PROJECT_DIR"/app.json | jq -r ".frp.url")
     local frp_version=$(echo "$frp_url" | grep -oP '(?<=releases/download/)[^/]+')
 
@@ -65,7 +65,7 @@ _process_apt_package() {
 
 op_item_list=""
 
-sync_ssh_key() {
+ssh.sync() {
     if [ -z "$op_item_list" ]; then
         op_item_list=$(op item list --format json)
     fi
@@ -93,7 +93,7 @@ sync_ssh_key() {
     chmod 644 "$public_key_path"
 }
 
-refresh_main_ssh_key() {
+ssh.main.refresh() {
     echo 'refresh main ssh key'
     local path="$PROJECT_DIR"/configs/ssh/id_ed25519
     ssh-keygen -t ed25519 -f "$path" -N "$1" -C "$USER_EMAIL"
@@ -101,7 +101,7 @@ refresh_main_ssh_key() {
     chmod 644 "$path".pub
 }
 
-enable_profile() {
+profile.enable() {
     if ! grep -q "source $HOME/.my_profile" "$HOME"/.profile; then
         echo "Update .profile..."
         echo "source $HOME/.my_profile" >> "$HOME"/.profile
@@ -136,20 +136,20 @@ sync() {
     ln -svf "$PROJECT_DIR"/configs/ssh "$HOME"/.ssh
 
     rm -f "$PROJECT_DIR"/configs/ssh/certs/id_*
-    sync_ssh_key 'ssh_github_ann'
-    sync_ssh_key 'ssh_github_alex'
-    sync_ssh_key 'ssh_codeup_fanyou'
-    sync_ssh_key 'ssh_fanyou124'
-    sync_ssh_key 'ssh_mime'
+    ssh.sync 'ssh_github_ann'
+    ssh.sync 'ssh_github_alex'
+    ssh.sync 'ssh_codeup_fanyou'
+    ssh.sync 'ssh_fanyou124'
+    ssh.sync 'ssh_mime'
 
     if [ ! -f "$PROJECT_DIR"/configs/ssh/id_ed25519 ]; then
-        refresh_main_ssh_key
+        ssh.main.refresh
     fi
 
     chmod +x "$PROJECT_DIR"/bin/homeup
 
-    sync_profile
-    enable_profile
+    profile.sync
+    profile.enable
 
     source "$HOME"/.my_profile
 }
@@ -159,15 +159,27 @@ help() {
     echo 'Commands:'
     echo '  help:                   显示此内容'
     echo '  sync:                   重新同步所有配置'
-    echo '  enable_profile:         启用 .my_profile'
-    echo '  refresh_main_ssh_key:   刷新 ~/.ssh/id_ed25519'
+    echo '  profile.enable:         启用 .my_profile'
+    echo '  profile.sync:           同步 .my_profile'
+    echo '  ssh.main.refresh:       刷新 ~/.ssh/id_ed25519'
     echo '      参数 <password>:    (可选) ssh key 的密码'
-    echo '  sync_ssh_key:           同步指定的 ssh key'
+    echo '  ssh.sync:               同步指定的 ssh key'
     echo '      参数 <title>:        op 的 item title'
-    echo '  sync_profile:           同步 .my_profile'
+    echo '  ssh.hosts:             显示所有 ssh hosts'
 }
 
-main() {
+ssh.hosts() {
+    echo 'fanyou124.ssh'
+    echo 'fy.codeup.aliyun.com'
+    echo 'alex-1900.github.com'
+    echo 'ann21st.github.com'
+    echo 'mime.codeup.aliyun.com'
+    echo 'banwagong.ssh'
+    echo ''
+    echo 'codeup.aliyun.com  =>  fy.codeup.aliyun.com'
+}
+
+_main() {
   if [ $# -lt 1 ]; then
     echo '参数不足'
   fi
@@ -175,4 +187,4 @@ main() {
   $1 "${args[@]:1:$#}"
 }
 
-main "$@"
+_main "$@"
