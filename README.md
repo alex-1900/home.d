@@ -28,5 +28,37 @@ cp .env.example .env
 
 # 设置 remote url
 ```sh
+# 获取
+git remote get-url origin
+# 设置
 git remote set-url origin git@github-work:username/repo.git
+```
+
+# 设置 ssh server
+`sudo vim /etc/ssh/sshd_config`
+```
+# 端口（可选，如果需要更改默认端口22）
+Port 22
+
+# 启用密码验证
+PasswordAuthentication yes
+
+# 确保允许本地网络连接
+PermitRootLogin yes
+```
+`sudo vim /etc/wsl.conf`
+```
+[boot]
+command = service ssh start
+```
+开启服务
+```sh
+sudo service ssh start
+sudo service ssh status
+```
+windows 连接
+```sh
+ssh gray@localhost
+# 端口转发
+ssh -L 8080:localhost:8080 -N -g gray@localhost
 ```

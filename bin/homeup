@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$(dirname "$(realpath "$BASH_SOURCE")")
+PROJECT_DIR=$(dirname "$SCRIPT_DIR")
+
+source "$PROJECT_DIR"/.env
+
+sync_profile() {
+    local frp_url=$(cat "$PROJECT_DIR"/app.json | jq -r ".frp.url")
+    local frp_version=$(echo "$frp_url" | grep -oP '(?<=releases/download/)[^/]+')
+
+    cat <<EOF > ~/.my_profile
+export PROXY_HOST=\$(ip route | grep default | awk '{print \$3}')
+export PROXY_HTTP_HOST=10809
+export PROXY_SOCK_HOST=10808
+
+export PATH="$PROJECT_DIR/bin:\$PATH"
+
+# app frp
+export PATH="$HOME/app/frp/bin:\$PATH"
+export FRP_VERSION="$frp_version"
+alias frpc='frpc -c "$PROJECT_DIR"/configs/frp/frpc.toml'
+
+EOF
+}
+
+load_frp() {
+    local url=$(cat "$PROJECT_DIR"/app.json | jq -r ".frp.url")
+    local version=$(echo "$url" | grep -oP '(?<=releases/download/)[^/]+')
+    if [ "$version" != "$FRP_VERSION" ]; then
+        local file_name=$(echo "$url" | grep -oP "(?<=$version/)[^/]+$")
+        local dir_name=$(echo "$url" | grep -oP "(?<=$version/)[^/]+(?=.tar.gz$)")
+
+        local proxy=$(ip route | grep default | awk '{print $3}')
+        https_proxy="$proxy:10809" wget -P /tmp/ "$url"
+        mkdir -p "$HOME"/app/frp/bin
+        tar xf /tmp/"$file_name" -C "$HOME"/app/frp/
+        ln -svf "$HOME"/app/frp/"$dir_name"/frpc "$HOME"/app/frp/bin/frpc
+    fi
+}
+
+load_wget() {
+    if ! command -v wget &> /dev/null; then
+        echo "wget is not installed. Installing..."
+        sudo apt update && sudo apt install -y wget
+    else
+        echo "wget is already installed."
+    fi
+}
+
+load_jq() {
+    if ! command -v jq &> /dev/null; then
+        echo "jq is not installed. Installing..."
+        sudo apt update && sudo apt install -y jq
+    else
+        echo "jq is already installed."
+    fi
+}
+
+_process_apt_package() {
+    load_jq
+    load_wget
+    load_frp
+}
+
+op_item_list=""
+
+sync_ssh_key() {
+    if [ -z "$op_item_list" ]; then
+        op_item_list=$(op item list --format json)
+    fi
+    local id=$(echo "$op_item_list" | jq -r ".[] | select(.title == \"$1\" and .category == \"SSH_KEY\") | .id")
+    local item=$(op item get "$id" --reveal --format json)
+    local private_key=$(echo "$item" | jq -r '.fields[] | select(.id == "private_key") | .ssh_formats.openssh.value')
+    local public_key=$(echo "$item" | jq -r '.fields[] | select(.id == "public_key") | .value')
+    local deploy_id=$(echo "$item" | jq -r '.fields[] | select(.label == "deploy_id") | .value')
+    local key_type=$(echo "$item" | jq -r '.fields[] | select(.id == "key_type") | .value')
+
+    local prefix='ed25519'
+    if [ "$key_type" = 'rsa' ]; then
+        prefix='rsa'
+    fi
+
+    echo SshKey process: "$deploy_id"
+
+    local priv_key_path="$PROJECT_DIR"/configs/ssh/certs/id_"$deploy_id"_"$prefix"
+    local public_key_path="$PROJECT_DIR"/configs/ssh/certs/id_"$deploy_id"_"$prefix".pub
+
+    echo "$private_key" > "$priv_key_path"
+    echo "$public_key" | tr -d '\n' > "$public_key_path"
+
+    chmod 600 "$priv_key_path"
+    chmod 644 "$public_key_path"
+}
+
+refresh_main_ssh_key() {
+    echo 'refresh main ssh key'
+    local path="$PROJECT_DIR"/configs/ssh/id_ed25519
+    ssh-keygen -t ed25519 -f "$path" -N "$1" -C "$USER_EMAIL"
+    chmod 600 "$path"
+    chmod 644 "$path".pub
+}
+
+enable_profile() {
+    if ! grep -q "source $HOME/.my_profile" "$HOME"/.profile; then
+        echo "Update .profile..."
+        echo "source $HOME/.my_profile" >> "$HOME"/.profile
+    fi
+
+    if command -v zsh &> /dev/null; then
+        if [ -f "$HOME"/.zprofile ]; then
+            if ! grep -q "source $HOME/.my_profile" "$HOME"/.zprofile; then
+                echo "Update .zprofile..."
+                echo "source $HOME/.my_profile" >> "$HOME"/.zprofile
+            fi
+        else
+            echo "Update .zprofile..."
+            echo "source $HOME/.my_profile" >> "$HOME"/.zprofile
+        fi
+    fi
+}
+
+sync() {
+    _process_apt_package
+
+    if [[ ! -L ~/.ssh ]]; then
+        if [ -d ~/.ssh ]; then
+            mv "$HOME"/.ssh "$HOME"/.ssh_backup
+        fi
+    else
+        rm "$HOME"/.ssh
+    fi
+
+    chmod 700 "$PROJECT_DIR"/configs/ssh
+    chmod 700 "$PROJECT_DIR"/configs/ssh/certs
+    ln -svf "$PROJECT_DIR"/configs/ssh "$HOME"/.ssh
+
+    rm -f "$PROJECT_DIR"/configs/ssh/certs/id_*
+    sync_ssh_key 'ssh_github_ann'
+    sync_ssh_key 'ssh_github_alex'
+    sync_ssh_key 'ssh_codeup_fanyou'
+    sync_ssh_key 'ssh_fanyou124'
+    sync_ssh_key 'ssh_mime'
+
+    if [ ! -f "$PROJECT_DIR"/configs/ssh/id_ed25519 ]; then
+        refresh_main_ssh_key
+    fi
+
+    chmod +x "$PROJECT_DIR"/bin/homeup
+
+    sync_profile
+    enable_profile
+
+    source "$HOME"/.my_profile
+}
+
+help() {
+    echo 'homeup <command> ...<options>'
+    echo 'Commands:'
+    echo '  help:                   显示此内容'
+    echo '  sync:                   重新同步所有配置'
+    echo '  enable_profile:         启用 .my_profile'
+    echo '  refresh_main_ssh_key:   刷新 ~/.ssh/id_ed25519'
+    echo '      参数 <password>:    (可选) ssh key 的密码'
+    echo '  sync_ssh_key:           同步指定的 ssh key'
+    echo '      参数 <title>:        op 的 item title'
+    echo '  sync_profile:           同步 .my_profile'
+}
+
+main() {
+  if [ $# -lt 1 ]; then
+    echo '参数不足'
+  fi
+  args=("$@")
+  $1 "${args[@]:1:$#}"
+}
+
+main "$@"

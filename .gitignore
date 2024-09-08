@@ -3,3 +3,4 @@
 /configs/ssh/known_hosts*
 !.gitkeep
 .env
+/tmp
