@@ -141,12 +141,13 @@ sync() {
     ssh.sync 'ssh_codeup_fanyou'
     ssh.sync 'ssh_fanyou124'
     ssh.sync 'ssh_mime'
+    ssh.sync 'ssh_fanyou_platform'
 
     if [ ! -f "$PROJECT_DIR"/configs/ssh/id_ed25519 ]; then
         ssh.main.refresh
     fi
 
-    chmod +x "$PROJECT_DIR"/bin/homeup
+    chmod +x "$PROJECT_DIR"/bin/homectl
 
     profile.sync
     profile.enable
