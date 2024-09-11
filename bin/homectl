@@ -175,6 +175,8 @@ ssh.hosts() {
     echo 'ann21st.github.com'
     echo 'mime.codeup.aliyun.com'
     echo 'banwagong.ssh'
+    echo 'fanyou90.ssh'
+    echo 'fanyou76.ssh'
     echo ''
     echo 'codeup.aliyun.com  =>  fy.codeup.aliyun.com'
 }

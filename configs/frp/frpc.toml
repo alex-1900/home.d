@@ -12,3 +12,10 @@ name = "web1"
 type = "http"
 localPort = 8081
 customDomains = ["comblldxtfy.frps.grayless.top"]
+
+[[proxies]]
+name = "hzm"
+type = "http"
+localPort = 4152
+customDomains = ["comblldxthzm.frps.grayless.top"]
+
