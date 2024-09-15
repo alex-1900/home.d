@@ -11,8 +11,8 @@ profile.sync() {
 
     cat <<EOF > ~/.my_profile
 export PROXY_HOST=\$(ip route | grep default | awk '{print \$3}')
-export PROXY_HTTP_HOST=10809
-export PROXY_SOCK_HOST=10808
+export PROXY_HTTP_PORT=10809
+export PROXY_SOCK_PORT=10808
 
 export PATH="$PROJECT_DIR/bin:\$PATH"
 
@@ -57,10 +57,72 @@ load_jq() {
     fi
 }
 
+load_ssh() {
+    if ! command -v ssh &> /dev/null; then
+        echo "ssh is not installed. Installing..."
+        sudo apt update && sudo apt install -y ssh
+    else
+        echo "ssh is already installed."
+    fi
+
+    sudo cp -f "$PROJECT_DIR"/configs/sshd/sshd_config /etc/ssh/sshd_config
+}
+
+load_v2fly() {
+    if ! command -v v2ray &> /dev/null; then
+        sudo tee /etc/apt/preferences > /dev/null <<EOF
+Explanation: Uninstall or do not install any Debian-originated
+Explanation: package versions other than those in the stable distro
+Package: *
+Pin: release a=stable
+Pin-Priority: 900
+
+Package: *
+Pin: release o=Debian
+Pin-Priority: -10
+EOF
+
+    sudo tee /etc/apt/preferences.d/90debian-unstable > /dev/null <<EOF
+Package: v2ray
+Pin: release a=unstable
+Pin-Priority: 900
+EOF
+
+    sudo tee /etc/apt/sources.list.d/unstable.list > /dev/null <<EOF
+deb https://deb.debian.org/debian/ sid main
+deb-src https://deb.debian.org/debian/ sid main
+EOF
+
+    sudo apt update && sudo apt install -y v2ray
+    else
+        echo "v2ray is already installed."
+    fi
+}
+
 _process_apt_package() {
+    load_ssh
     load_jq
     load_wget
     load_frp
+    load_v2fly
+}
+
+wsl.update() {
+    chmod +x "$PROJECT_DIR"/configs/wsl/start-services.sh
+    sudo tee /etc/wsl.conf > /dev/null <<EOF
+[boot]
+command="$PROJECT_DIR/configs/wsl/start-services.sh"
+EOF
+}
+
+apt.update_proxy() {
+    local PROXY_HOST=$(ip route | grep default | awk '{print $3}')
+    local PROXY_HTTP_PORT=10809
+    sudo tee /etc/apt/apt.conf.d/proxy.conf > /dev/null <<EOF
+Acquire::http::Proxy "http://$PROXY_HOST:$PROXY_HTTP_PORT/";
+Acquire::https::Proxy "http://$PROXY_HOST:$PROXY_HTTP_PORT/";
+Acquire::ftp::Proxy "http://$PROXY_HOST:$PROXY_HTTP_PORT/";
+EOF
 }
 
 op_item_list=""
@@ -153,6 +215,8 @@ sync() {
     profile.enable
 
     source "$HOME"/.my_profile
+
+    wsl.update
 }
 
 help() {
