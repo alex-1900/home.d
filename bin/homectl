@@ -97,6 +97,8 @@ EOF
     else
         echo "v2ray is already installed."
     fi
+
+    sudo ln -svf "$PROJECT_DIR"/configs/v2ray/config.json /etc/v2ray/config.json
 }
 
 _process_apt_package() {
