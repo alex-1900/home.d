@@ -4,8 +4,7 @@
       "port": 10818,
       "protocol": "socks",
       "settings": {
-        "auth": "noauth",
-        "udp": true
+        "udpEnabled": true
       }
     },
     {
