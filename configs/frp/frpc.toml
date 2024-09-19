@@ -19,3 +19,8 @@ type = "http"
 localPort = 4152
 customDomains = ["comblldxthzm.frps.grayless.top"]
 
+[[proxies]]
+name = "platform"
+type = "http"
+localPort = 8187
+customDomains = ["platform.frps.grayless.top"]
